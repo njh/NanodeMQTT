@@ -51,6 +51,8 @@ enum mqtt_state {
   MQTT_STATE_CONNECT_SENT,   // Connect packet TCP-acked
   MQTT_STATE_CONNECTED,      // Received CONNACK
   MQTT_STATE_CONNECT_FAIL,   // CONNACK returned non-zero
+  MQTT_STATE_PINGING,        // In the middle of sending a PING
+  MQTT_STATE_DISCONNECTING,  // In the middle of sending a DISCONNECT packet
   MQTT_STATE_DISCONNECTED
 };
 
@@ -64,37 +66,42 @@ private:
   u16_t keep_alive;
   u8_t state;
 
+  struct timer receive_timer;
+  struct timer transmit_timer;
+
+
 public:
   NanodeMQTT(NanodeUIP *uip);
 
   void set_client_id(const char* client_id);
   void set_server_addr(byte a, byte b, byte c, byte d);
   void set_server_port(u16_t port);
+  void set_keep_alive(u16_t secs);
   
   void connect();
-
+  void disconnect();
+  u8_t connected();
 
   void publish(char* topic, char* payload);
   void publish(char* topic, uint8_t* payload, uint8_t plength);
   void publish(char* topic, uint8_t* payload, uint8_t plength, uint8_t retained);
-  
 
-  uint8_t write_string(char* string, u8_t *buf, uint8_t *pos);
 
-  // Callbacks
+  // uIP Callbacks (used internally)
   void tcp_closed();
   void tcp_connected();
   void tcp_acked();
   void tcp_receive();
-  void senddata();
-  
-  
-  private:
+  void tcp_transmit();
+  void check_timeout();
+
+
+private:
   // Packet assembly functions
   void init_packet(u8_t type, u8_t flags=MQTT_FLAG_QOS_0);
   void append_byte(u8_t b);
-  void append_short(u16_t s);
-  void append_string(char* str);
+  void append_word(u16_t s);
+  void append_string(const char* str);
   void send_packet();
 };
 

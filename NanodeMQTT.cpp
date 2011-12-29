@@ -18,33 +18,20 @@ static void mqtt_appcall(void)
 
   if (uip_aborted() || uip_timedout() || uip_closed()) {
     mqtt->tcp_closed();
-  }
-
-  if (uip_connected()) {
+  } else if (uip_connected()) {
     mqtt->tcp_connected();
-  }
-
-  if (uip_acked()) {
+  } else if (uip_acked()) {
     mqtt->tcp_acked();
-  }
-  
-  // Is new incoming data available?
-  if (uip_newdata()) {
+  } else if (uip_newdata()) {
     mqtt->tcp_receive();
-  }
-
-  if (uip_rexmit()) {
+  } else if (uip_rexmit()) {
     Serial.println("uip_rexmit()");
-  }
-  
-  if (uip_poll()) {
-    Serial.println("uip_poll()");
-  }
-
-  if (uip_connected() || uip_rexmit()) {
-    mqtt->senddata();
+    mqtt->tcp_transmit();
+  } else if (uip_poll()) {
+    // FIXME: do we need this?
   }
 
+  mqtt->check_timeout();
 }
 
 
@@ -63,12 +50,18 @@ void NanodeMQTT::set_server_port(u16_t port)
   this->port = port;
 }
 
+void NanodeMQTT::set_keep_alive(u16_t secs)
+{
+  this->keep_alive = secs;
+}
+
 
 // FIXME: add support for WILL
 void NanodeMQTT::connect()
 {
   struct uip_conn *conn;
-  
+
+  // Set the client ID to the MAC address, if none is set
   if (this->client_id[0] == '\0') {
     uip->get_mac_str(this->client_id);
   }
@@ -79,10 +72,32 @@ void NanodeMQTT::connect()
     s->mqtt = this;
     this->state = MQTT_STATE_WAITING;
   }
-  
 
+  // Set the keep-alive timers
+  timer_set(&this->transmit_timer, CLOCK_SECOND * this->keep_alive);
+  timer_set(&this->receive_timer, CLOCK_SECOND * this->keep_alive);
 }
 
+
+u8_t NanodeMQTT::connected()
+{
+  switch(this->state) {
+    case MQTT_STATE_CONNECTED:
+    case MQTT_STATE_PINGING:
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+void NanodeMQTT::disconnect()
+{
+   Serial.println("disconnect()");
+   if (this->connected()) {
+      this->state = MQTT_STATE_DISCONNECTING;
+      this->tcp_transmit();
+   }
+}
 
 void NanodeMQTT::publish(char* topic, char* payload)
 {
@@ -115,7 +130,7 @@ void NanodeMQTT::append_byte(u8_t b)
   buf[1] = pos - 2;
 }
 
-void NanodeMQTT::append_short(u16_t s)
+void NanodeMQTT::append_word(u16_t s)
 {
   // FIXME: endian is confusing the hell out of me
   u8_t *buf = (u8_t *)uip_appdata;
@@ -125,12 +140,12 @@ void NanodeMQTT::append_short(u16_t s)
   buf[1] = pos - 2;
 }
 
-void NanodeMQTT::append_string(char* str)
+void NanodeMQTT::append_string(const char* str)
 {
   // FIXME: support strings longer than 255 bytes
   u8_t *buf = (u8_t *)uip_appdata;
   u8_t pos = buf[1] + 2;
-  char* ptr = str;
+  const char* ptr = str;
   uint8_t len = 0;
   pos += 2;
   while (*ptr) {
@@ -148,12 +163,16 @@ void NanodeMQTT::send_packet()
   u8_t *buf = (u8_t *)uip_appdata;
   u8_t len = buf[1] + 2;
   uip_send(buf, len);
+
+  // Restart the packet send timer
+  timer_restart(&this->transmit_timer);
 }
 
 void NanodeMQTT::tcp_connected()
 {
   Serial.println("tcp_connected()");
   this->state = MQTT_STATE_TCP_CONNECTED;
+  this->tcp_transmit();
 }
 
 void NanodeMQTT::tcp_acked()
@@ -161,6 +180,11 @@ void NanodeMQTT::tcp_acked()
   Serial.println("tcp_acked()");
   if (state == MQTT_STATE_TCP_CONNECTED) {
     this->state = MQTT_STATE_CONNECT_SENT;
+  } else if (state == MQTT_STATE_PINGING) {
+    this->state = MQTT_STATE_CONNECTED;
+  } else if (state == MQTT_STATE_DISCONNECTING) {
+    this->state = MQTT_STATE_DISCONNECTED;
+    uip_close();
   }
 }
 
@@ -172,15 +196,8 @@ void NanodeMQTT::tcp_receive()
   if (uip_datalen() == 0)
     return;
 
-  Serial.println("tcp_receive()");
-  for(u8_t i=0; i<uip_len; i++) {
-    Serial.print(" 0x");
-    Serial.print(i, HEX);
-    Serial.print(": 0x");
-    Serial.print(buf[i], HEX);
-    Serial.println();
-  }
-  
+  // FIXME: support packets longer than 127 bytes
+
   if (type == MQTT_TYPE_CONNACK) {
      u8_t code = buf[3];
      if (code == 0) {
@@ -193,11 +210,17 @@ void NanodeMQTT::tcp_receive()
         uip_close();
         this->state = MQTT_STATE_CONNECT_FAIL;
      }
+  } else if (type == MQTT_TYPE_PINGRESP) {
+    Serial.println("Pong!");
   } else {
     Serial.print("unknown type=0x");
     Serial.print(type, HEX);
     Serial.println();
   }
+
+  // Restart the packet receive timer
+  // FIXME: this should only be restarted when a valid packet is received
+  timer_restart(&this->receive_timer);
 }
 
 void NanodeMQTT::tcp_closed()
@@ -205,13 +228,41 @@ void NanodeMQTT::tcp_closed()
   Serial.println("tcp_closed()");
   this->state = MQTT_STATE_DISCONNECTED;
   uip_close();
-  
+
   // FIXME: re-establish connection automatically
 }
 
-void NanodeMQTT::senddata()
+void NanodeMQTT::check_timeout()
 {
-  Serial.println("senddata()");
+  // Check the transmit timer (is a ping due?)
+  if (timer_expired(&this->transmit_timer)) {
+    // Send a ping
+    Serial.println("Time for a ping!");
+    this->state = MQTT_STATE_PINGING;
+    this->tcp_transmit();
+
+    // Give the server time to respond to the ping
+    timer_restart(&this->receive_timer);
+  }
+
+  if (timer_expired(&this->receive_timer)) {
+    // Timed out waiting for a packet
+    if (this->connected()) {
+      Serial.println("Timed out waiting for a packet.");
+      this->disconnect();
+    } else if (this->state == MQTT_STATE_DISCONNECTING) {
+      Serial.println("Disconnected.");
+      this->state = MQTT_STATE_DISCONNECTED;
+      uip_abort();
+    }
+  }
+}
+
+
+// Transmit/re-transmit packet for the current state
+void NanodeMQTT::tcp_transmit()
+{
+  Serial.println("tcp_transmit()");
 
   if (this->state == MQTT_STATE_TCP_CONNECTED) {
     // Send a CONNECT packet
@@ -219,8 +270,18 @@ void NanodeMQTT::senddata()
     append_string("MQIsdp");
     append_byte(MQTT_PROTOCOL_VERSION);
     append_byte(MQTT_FLAG_CLEAN); // Connect flags
-    append_short(this->keep_alive);
+    append_word(this->keep_alive);
     append_string(this->client_id);
     send_packet();
+  } else if (this->state == MQTT_STATE_PINGING) {
+    init_packet(MQTT_TYPE_PINGREQ);
+    send_packet();
+  } else if (this->state == MQTT_STATE_DISCONNECTING) {
+    init_packet(MQTT_TYPE_DISCONNECT);
+    send_packet();
+  } else {
+    Serial.print("** Don't know what to transmit for state ");
+    Serial.print(this->state, DEC);
+    Serial.println();
   }
 }
