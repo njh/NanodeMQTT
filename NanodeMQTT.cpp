@@ -186,13 +186,13 @@ void NanodeMQTT::send_packet()
 
 void NanodeMQTT::tcp_connected()
 {
-  this->state = MQTT_STATE_TCP_CONNECTED;
+  this->state = MQTT_STATE_CONNECTING;
   this->tcp_transmit();
 }
 
 void NanodeMQTT::tcp_acked()
 {
-  if (state == MQTT_STATE_TCP_CONNECTED) {
+  if (state == MQTT_STATE_CONNECTING) {
     this->state = MQTT_STATE_CONNECT_SENT;
   } else if (state == MQTT_STATE_PUBLISHING) {
     this->state = MQTT_STATE_CONNECTED;
@@ -306,7 +306,7 @@ void NanodeMQTT::tcp_transmit()
 {
   Serial.println("tcp_transmit()");
 
-  if (this->state == MQTT_STATE_TCP_CONNECTED) {
+  if (this->state == MQTT_STATE_CONNECTING) {
     // Send a CONNECT packet
     init_packet(MQTT_TYPE_CONNECT);
     append_string("MQIsdp");

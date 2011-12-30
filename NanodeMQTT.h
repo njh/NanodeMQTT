@@ -48,8 +48,8 @@
 
 enum mqtt_state {
   MQTT_STATE_WAITING,        // Waiting for TCP to connect
-  MQTT_STATE_TCP_CONNECTED,  // TCP Connected by not sent CONNECT packet yet
-  MQTT_STATE_CONNECT_SENT,   // Connect packet TCP-acked
+  MQTT_STATE_CONNECTING,     // TCP Connected and in middle of sending a CONNECT
+  MQTT_STATE_CONNECT_SENT,   // Waiting for CONNACK
   MQTT_STATE_CONNECTED,      // Received CONNACK
   MQTT_STATE_CONNECT_FAIL,   // CONNACK returned non-zero
   MQTT_STATE_PUBLISHING,     // In the middle of sending a PUBLISH
