@@ -6,9 +6,7 @@ NanodeMQTT mqtt(&uip);
 struct timer my_timer;
 
 void setup() {
-  char buf[20];
   byte macaddr[6];
-  uip_ipaddr_t remote_addr;
   NanodeUNIO unio(NANODE_MAC_DEVICE);
 
   Serial.begin(38400);
@@ -16,7 +14,7 @@ void setup() {
   
   unio.read(macaddr, NANODE_MAC_ADDRESS, 6);
   uip.init(macaddr);
-   
+
   // FIXME: use DHCP instead
   uip.set_ip_addr(10, 100, 10, 10);
   uip.set_netmask(255, 255, 255, 0);
@@ -31,16 +29,18 @@ void setup() {
   mqtt.set_server_addr(10, 100, 10, 1);
   mqtt.connect();
 
-
   Serial.println("setup() done");
 }
 
 void loop() {
   uip.poll();
 
+  // FIXME: this might need to be called by uip_poll()
   if(timer_expired(&my_timer)) {
     timer_reset(&my_timer);
-    Serial.println("publishing.");
+    if (mqtt.connected()) {
+      Serial.println("publishing.");
+      mqtt.publish("/test", "Hello World!");
+    }
   }
 }
-
