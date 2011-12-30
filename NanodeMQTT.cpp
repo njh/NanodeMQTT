@@ -9,6 +9,9 @@ NanodeMQTT::NanodeMQTT(NanodeUIP *uip)
   this->port = MQTT_DEFAULT_PORT;
   this->keep_alive = MQTT_DEFAULT_KEEP_ALIVE;
   this->state = MQTT_STATE_DISCONNECTED;
+  this->callback = NULL;
+  this->subscribe_topic = NULL;
+  this->message_id = 0;
 }
 
 static void mqtt_appcall(void)
@@ -53,6 +56,11 @@ void NanodeMQTT::set_server_port(u16_t port)
 void NanodeMQTT::set_keep_alive(u16_t secs)
 {
   this->keep_alive = secs;
+}
+
+void NanodeMQTT::set_callback(mqtt_callback_t callback)
+{
+  this->callback = callback;
 }
 
 
@@ -119,6 +127,11 @@ void NanodeMQTT::publish(const char* topic, uint8_t* payload, uint8_t plength, u
   this->payload_length = plength;
 }
 
+void NanodeMQTT::subscribe(const char* topic)
+{
+  // FIXME: work out how to subscribe to multiple topics?
+  this->subscribe_topic = topic;
+}
 
 void NanodeMQTT::init_packet(u8_t header)
 {
@@ -186,6 +199,9 @@ void NanodeMQTT::tcp_acked()
     this->payload_length = 0;
   } else if (state == MQTT_STATE_PINGING) {
     this->state = MQTT_STATE_CONNECTED;
+  } else if (state == MQTT_STATE_SUBSCRIBING) {
+    this->state = MQTT_STATE_SUBSCRIBE_SENT;
+    this->subscribe_topic = NULL;
   } else if (state == MQTT_STATE_DISCONNECTING) {
     this->state = MQTT_STATE_DISCONNECTED;
     uip_close();
@@ -202,6 +218,7 @@ void NanodeMQTT::tcp_receive()
   if (uip_datalen() == 0)
     return;
 
+  // FIXME: check that packet isn't too long?
   // FIXME: support packets longer than 127 bytes
 
   if (type == MQTT_TYPE_CONNACK) {
@@ -216,8 +233,21 @@ void NanodeMQTT::tcp_receive()
         uip_close();
         this->state = MQTT_STATE_CONNECT_FAIL;
      }
+  } else if (type == MQTT_TYPE_SUBACK) {
+    Serial.println("Subscribed!");
+    // FIXME: check current state before changing state
+    this->state = MQTT_STATE_CONNECTED;
   } else if (type == MQTT_TYPE_PINGRESP) {
     Serial.println("Pong!");
+  } else if (type == MQTT_TYPE_PUBLISH) {
+    if (this->callback) {
+      uint8_t tl = buf[3];
+      // FIXME: is there a way we can NULL-terminate the string in the packet buffer?
+      char topic[tl+1];
+      memcpy(topic, &buf[4], tl);
+      topic[tl] = 0;
+      this->callback(topic, buf+4+tl, buf[1]-2-tl);
+    }
   } else {
     // Ignore
   }
@@ -238,9 +268,15 @@ void NanodeMQTT::tcp_closed()
 
 void NanodeMQTT::poll()
 {
-  if (this->payload_length && this->state == MQTT_STATE_CONNECTED) {
-    this->state = MQTT_STATE_PUBLISHING;
-    this->tcp_transmit();
+  if (this->state == MQTT_STATE_CONNECTED) {
+    if (this->payload_length) {
+      this->state = MQTT_STATE_PUBLISHING;
+      this->tcp_transmit();
+    } else if (this->subscribe_topic) {
+      this->state = MQTT_STATE_SUBSCRIBING;
+      this->message_id++;
+      this->tcp_transmit();
+    }
   }
 }
 
@@ -286,6 +322,12 @@ void NanodeMQTT::tcp_transmit()
     init_packet(header);
     append_string(this->payload_topic);
     append_data(this->payload, this->payload_length);
+    send_packet();
+  } else if (this->state == MQTT_STATE_SUBSCRIBING) {
+    init_packet(MQTT_TYPE_SUBSCRIBE);
+    append_word(this->message_id);
+    append_string(this->subscribe_topic);
+    append_byte(0x00);  // We only support QOS 0
     send_packet();
   } else if (this->state == MQTT_STATE_PINGING) {
     init_packet(MQTT_TYPE_PINGREQ);

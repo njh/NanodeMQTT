@@ -53,10 +53,16 @@ enum mqtt_state {
   MQTT_STATE_CONNECTED,      // Received CONNACK
   MQTT_STATE_CONNECT_FAIL,   // CONNACK returned non-zero
   MQTT_STATE_PUBLISHING,     // In the middle of sending a PUBLISH
+  MQTT_STATE_SUBSCRIBING,    // In the middle of sending a SUBSCRIBE
+  MQTT_STATE_SUBSCRIBE_SENT, // Waiting for a SUBACK
   MQTT_STATE_PINGING,        // In the middle of sending a PING
   MQTT_STATE_DISCONNECTING,  // In the middle of sending a DISCONNECT packet
   MQTT_STATE_DISCONNECTED
 };
+
+
+typedef void (*mqtt_callback_t) (const char* topic, u8_t* payload, int payload_length);
+
 
 
 class NanodeMQTT {
@@ -66,6 +72,7 @@ private:
   uip_ipaddr_t addr;
   u16_t port;
   u16_t keep_alive;
+  u16_t message_id;
   u8_t state;
 
   u8_t *buf;
@@ -74,11 +81,16 @@ private:
   struct timer receive_timer;
   struct timer transmit_timer;
 
+  // Publishing
   // FIXME: can we do without these buffers
   char payload_topic[32];
   u8_t payload[MQTT_MAX_PAYLOAD_LEN];
   u8_t payload_length;
   u8_t payload_retain;
+
+  // Subscribing
+  const char *subscribe_topic;
+  mqtt_callback_t callback;
 
 public:
   NanodeMQTT(NanodeUIP *uip);
@@ -87,6 +99,7 @@ public:
   void set_server_addr(byte a, byte b, byte c, byte d);
   void set_server_port(u16_t port);
   void set_keep_alive(u16_t secs);
+  void set_callback(mqtt_callback_t callback);
 
   void connect();
   void disconnect();
@@ -96,6 +109,7 @@ public:
   void publish(const char* topic, uint8_t* payload, uint8_t plength);
   void publish(const char* topic, uint8_t* payload, uint8_t plength, uint8_t retained);
 
+  void subscribe(const char* topic);
 
   // uIP Callbacks (used internally)
   void tcp_closed();
