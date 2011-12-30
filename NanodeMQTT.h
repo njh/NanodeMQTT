@@ -5,9 +5,10 @@
 
 
 #define MQTT_DEFAULT_PORT        (1883)
-#define MQTT_DEFAULT_KEEP_ALIVE  (10)
+#define MQTT_DEFAULT_KEEP_ALIVE  (15)
 
 #define MQTT_MAX_CLIENT_ID_LEN   (23)
+#define MQTT_MAX_PAYLOAD_LEN     (127)
 
 
 // MQTT Packet Types
@@ -51,6 +52,7 @@ enum mqtt_state {
   MQTT_STATE_CONNECT_SENT,   // Connect packet TCP-acked
   MQTT_STATE_CONNECTED,      // Received CONNACK
   MQTT_STATE_CONNECT_FAIL,   // CONNACK returned non-zero
+  MQTT_STATE_PUBLISHING,     // In the middle of sending a PUBLISH
   MQTT_STATE_PINGING,        // In the middle of sending a PING
   MQTT_STATE_DISCONNECTING,  // In the middle of sending a DISCONNECT packet
   MQTT_STATE_DISCONNECTED
@@ -66,9 +68,17 @@ private:
   u16_t keep_alive;
   u8_t state;
 
+  u8_t *buf;
+  u8_t pos;
+
   struct timer receive_timer;
   struct timer transmit_timer;
 
+  // FIXME: can we do without these buffers
+  char payload_topic[32];
+  u8_t payload[MQTT_MAX_PAYLOAD_LEN];
+  u8_t payload_length;
+  u8_t payload_retain;
 
 public:
   NanodeMQTT(NanodeUIP *uip);
@@ -77,14 +87,14 @@ public:
   void set_server_addr(byte a, byte b, byte c, byte d);
   void set_server_port(u16_t port);
   void set_keep_alive(u16_t secs);
-  
+
   void connect();
   void disconnect();
   u8_t connected();
 
-  void publish(char* topic, char* payload);
-  void publish(char* topic, uint8_t* payload, uint8_t plength);
-  void publish(char* topic, uint8_t* payload, uint8_t plength, uint8_t retained);
+  void publish(const char* topic, char* payload);
+  void publish(const char* topic, uint8_t* payload, uint8_t plength);
+  void publish(const char* topic, uint8_t* payload, uint8_t plength, uint8_t retained);
 
 
   // uIP Callbacks (used internally)
@@ -93,15 +103,17 @@ public:
   void tcp_acked();
   void tcp_receive();
   void tcp_transmit();
+  void poll();
   void check_timeout();
 
 
 private:
   // Packet assembly functions
-  void init_packet(u8_t type, u8_t flags=MQTT_FLAG_QOS_0);
+  void init_packet(u8_t header);
   void append_byte(u8_t b);
   void append_word(u16_t s);
   void append_string(const char* str);
+  void append_data(u8_t *data, u8_t data_len);
   void send_packet();
 };
 
