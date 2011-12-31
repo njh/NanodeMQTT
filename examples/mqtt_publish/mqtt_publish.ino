@@ -40,7 +40,7 @@ void loop() {
     timer_reset(&my_timer);
     if (mqtt.connected()) {
       Serial.println("publishing.");
-      mqtt.publish("/test", "Hello World!");
+      mqtt.publish("test", "Hello World!");
     }
   }
 }
