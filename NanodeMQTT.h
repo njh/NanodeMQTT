@@ -61,7 +61,7 @@ enum mqtt_state {
 };
 
 
-typedef void (*mqtt_callback_t) (const char* topic, u8_t* payload, int payload_length);
+typedef void (*mqtt_callback_t) (const char* topic, uint8_t* payload, int payload_length);
 
 
 
@@ -70,13 +70,13 @@ private:
   NanodeUIP *uip;
   char client_id[MQTT_MAX_CLIENT_ID_LEN+1];
   uip_ipaddr_t addr;
-  u16_t port;
-  u16_t keep_alive;
-  u16_t message_id;
-  u8_t state;
+  uint16_t port;
+  uint16_t keep_alive;
+  uint16_t message_id;
+  uint8_t state;
 
-  u8_t *buf;
-  u8_t pos;
+  uint8_t *buf;
+  uint8_t pos;
 
   struct timer receive_timer;
   struct timer transmit_timer;
@@ -84,9 +84,9 @@ private:
   // Publishing
   // FIXME: can we do without these buffers
   char payload_topic[32];
-  u8_t payload[MQTT_MAX_PAYLOAD_LEN];
-  u8_t payload_length;
-  u8_t payload_retain;
+  uint8_t payload[MQTT_MAX_PAYLOAD_LEN];
+  uint8_t payload_length;
+  uint8_t payload_retain;
 
   // Subscribing
   const char *subscribe_topic;
@@ -97,13 +97,13 @@ public:
 
   void set_client_id(const char* client_id);
   void set_server_addr(byte a, byte b, byte c, byte d);
-  void set_server_port(u16_t port);
-  void set_keep_alive(u16_t secs);
+  void set_server_port(uint16_t port);
+  void set_keep_alive(uint16_t secs);
   void set_callback(mqtt_callback_t callback);
 
   void connect();
   void disconnect();
-  u8_t connected();
+  uint8_t connected();
 
   void publish(const char* topic, char* payload);
   void publish(const char* topic, uint8_t* payload, uint8_t plength);
@@ -123,11 +123,11 @@ public:
 
 private:
   // Packet assembly functions
-  void init_packet(u8_t header);
-  void append_byte(u8_t b);
-  void append_word(u16_t s);
+  void init_packet(uint8_t header);
+  void append_byte(uint8_t b);
+  void append_word(uint16_t s);
   void append_string(const char* str);
-  void append_data(u8_t *data, u8_t data_len);
+  void append_data(uint8_t *data, uint8_t data_len);
   void send_packet();
 };
 

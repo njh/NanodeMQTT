@@ -48,12 +48,12 @@ void NanodeMQTT::set_server_addr(byte a, byte b, byte c, byte d)
   uip_ipaddr(this->addr, a,b,c,d);
 }
 
-void NanodeMQTT::set_server_port(u16_t port)
+void NanodeMQTT::set_server_port(uint16_t port)
 {
   this->port = port;
 }
 
-void NanodeMQTT::set_keep_alive(u16_t secs)
+void NanodeMQTT::set_keep_alive(uint16_t secs)
 {
   this->keep_alive = secs;
 }
@@ -87,7 +87,7 @@ void NanodeMQTT::connect()
 }
 
 
-u8_t NanodeMQTT::connected()
+uint8_t NanodeMQTT::connected()
 {
   switch(this->state) {
     case MQTT_STATE_CONNECTED:
@@ -133,20 +133,20 @@ void NanodeMQTT::subscribe(const char* topic)
   this->subscribe_topic = topic;
 }
 
-void NanodeMQTT::init_packet(u8_t header)
+void NanodeMQTT::init_packet(uint8_t header)
 {
-  buf = (u8_t *)uip_appdata;
+  buf = (uint8_t *)uip_appdata;
   pos = 0;
   buf[pos++] = header;
   buf[pos++] = 0x00;  // Packet length
 }
 
-void NanodeMQTT::append_byte(u8_t b)
+void NanodeMQTT::append_byte(uint8_t b)
 {
   buf[pos++] = b;
 }
 
-void NanodeMQTT::append_word(u16_t s)
+void NanodeMQTT::append_word(uint16_t s)
 {
   // FIXME: endian is confusing the hell out of me
   buf[pos++] = (s >> 8) & 0xFF;
@@ -167,7 +167,7 @@ void NanodeMQTT::append_string(const char* str)
   buf[pos-len-1] = len;
 }
 
-void NanodeMQTT::append_data(u8_t *data, u8_t data_len)
+void NanodeMQTT::append_data(uint8_t *data, uint8_t data_len)
 {
   memcpy(&buf[pos], data, data_len);
   pos += data_len;
@@ -212,8 +212,8 @@ void NanodeMQTT::tcp_acked()
 
 void NanodeMQTT::tcp_receive()
 {
-  u8_t *buf = (u8_t *)uip_appdata;
-  u8_t type = buf[0] & 0xF0;
+  uint8_t *buf = (uint8_t *)uip_appdata;
+  uint8_t type = buf[0] & 0xF0;
 
   if (uip_datalen() == 0)
     return;
@@ -222,7 +222,7 @@ void NanodeMQTT::tcp_receive()
   // FIXME: support packets longer than 127 bytes
 
   if (type == MQTT_TYPE_CONNACK) {
-     u8_t code = buf[3];
+     uint8_t code = buf[3];
      if (code == 0) {
         Serial.println("Connected!");
         this->state = MQTT_STATE_CONNECTED;
@@ -316,7 +316,7 @@ void NanodeMQTT::tcp_transmit()
     append_string(this->client_id);
     send_packet();
   } else if (this->state == MQTT_STATE_PUBLISHING) {
-    u8_t header = MQTT_TYPE_PUBLISH;
+    uint8_t header = MQTT_TYPE_PUBLISH;
     if (payload_retain)
       header |= MQTT_FLAG_RETAIN;
     init_packet(header);
