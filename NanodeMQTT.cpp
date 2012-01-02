@@ -189,9 +189,8 @@ void NanodeMQTT::append_byte(uint8_t b)
 
 void NanodeMQTT::append_word(uint16_t s)
 {
-  // FIXME: endian is confusing the hell out of me
-  buf[pos++] = (s >> 8) & 0xFF;
-  buf[pos++] = s & 0xFF;
+  buf[pos++] = highByte(s);
+  buf[pos++] = lowByte(s);
 }
 
 void NanodeMQTT::append_string(const char* str)
