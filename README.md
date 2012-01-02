@@ -23,19 +23,27 @@ Limitations
 Questions
 ---------
 
-* Is the public API simple enough?
+* Should the public API calls block?
+  - connect()
+  - subscribe()
+  - publish()
 * What is the best approach to error handling?
  - Is it a good idea to print debug messages to Serial?
 * What assumptions is it safe to make to reduce complexity?
  - Should we bother waiting for SUBACK?
 * When/how to auto-reconnect?
 * How to analyse RAM / programme usage and optimise?
+* How to close previous TCP session after resetting the AVR?
 
 
 TODO
 ----
 
-* Fix problem with random disconnect
+* Add licensing information
+* Switch to using switch()
+* Make better use of the uIP appstate memory
+* Add a new timed out state?
+* Time-out if SUBACK isn't received?
 * Implement auto-reconnect
 * Look at removing some buffers
 * Get DNS working in example
