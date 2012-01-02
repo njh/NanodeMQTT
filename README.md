@@ -3,6 +3,7 @@ NanodeMQTT
 
 Implementation of [MQTT] for the [Nanode]. MQTT is a lightweight PubSub protocol.
 Nanode is an open source Arduino-like board that has in-built internet connectivity.
+It is licensed under the [BSD 3-Clause License].
 
 
 Requirements
@@ -39,8 +40,6 @@ Questions
 TODO
 ----
 
-* Add licensing information
-* Switch to using switch()
 * Make better use of the uIP appstate memory
 * Add a new timed out state?
 * Time-out if SUBACK isn't received?
@@ -74,3 +73,4 @@ Thanks to
 [uIP]:          http://en.wikipedia.org/wiki/UIP_(micro_IP)
 [Contiki]:      http://www.contiki-os.org/
 [PubSubClient]: http://knolleary.net/arduino-client-for-mqtt/
+[BSD 3-Clause License]: http://www.opensource.org/licenses/BSD-3-Clause
