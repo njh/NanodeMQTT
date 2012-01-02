@@ -236,22 +236,28 @@ void NanodeMQTT::tcp_connected()
 
 void NanodeMQTT::tcp_acked()
 {
-  // FIXME: convert to a switch()
-  if (state == MQTT_STATE_CONNECTING) {
-    this->state = MQTT_STATE_CONNECT_SENT;
-  } else if (state == MQTT_STATE_PUBLISHING) {
-    this->state = MQTT_STATE_CONNECTED;
-    this->payload_length = 0;
-  } else if (state == MQTT_STATE_PINGING) {
-    this->state = MQTT_STATE_CONNECTED;
-  } else if (state == MQTT_STATE_SUBSCRIBING) {
-    this->state = MQTT_STATE_SUBSCRIBE_SENT;
-    this->subscribe_topic = NULL;
-  } else if (state == MQTT_STATE_DISCONNECTING) {
-    this->state = MQTT_STATE_DISCONNECTED;
-    uip_close();
-  } else {
-    MQTT_DEBUG_PRINTLN("TCP: ack unknown state");
+  switch(this->state) {
+    case MQTT_STATE_CONNECTING:
+      this->state = MQTT_STATE_CONNECT_SENT;
+      break;
+    case MQTT_STATE_PUBLISHING:
+      this->state = MQTT_STATE_CONNECTED;
+      this->payload_length = 0;
+      break;
+    case MQTT_STATE_PINGING:
+      this->state = MQTT_STATE_CONNECTED;
+      break;
+    case MQTT_STATE_SUBSCRIBING:
+      this->state = MQTT_STATE_SUBSCRIBE_SENT;
+      this->subscribe_topic = NULL;
+      break;
+    case MQTT_STATE_DISCONNECTING:
+      this->state = MQTT_STATE_DISCONNECTED;
+      uip_close();
+      break;
+    default:
+      MQTT_DEBUG_PRINTLN("TCP: ack unknown state");
+      break;
   }
 }
 
@@ -267,33 +273,39 @@ void NanodeMQTT::tcp_receive()
   // FIXME: support packets longer than 127 bytes
 
   // FIXME: convert to a switch()
-  if (type == MQTT_TYPE_CONNACK) {
-     uint8_t code = buf[3];
-     if (code == 0) {
+  switch(type) {
+    case MQTT_TYPE_CONNACK: {
+      uint8_t code = buf[3];
+      if (code == 0) {
         MQTT_DEBUG_PRINTLN("MQTT: Connected!");
         this->state = MQTT_STATE_CONNECTED;
-     } else {
+      } else {
         MQTT_DEBUG_PRINTF("MQTT: Connection failed (0x%x)\n", code);
         uip_close();
         this->state = MQTT_STATE_CONNECT_FAIL;
-     }
-  } else if (type == MQTT_TYPE_SUBACK) {
-    MQTT_DEBUG_PRINTLN("MQTT: Subscribed!");
-    // FIXME: check current state before changing state
-    this->state = MQTT_STATE_CONNECTED;
-  } else if (type == MQTT_TYPE_PINGRESP) {
-    MQTT_DEBUG_PRINTLN("MQTT: Pong!");
-  } else if (type == MQTT_TYPE_PUBLISH) {
-    if (this->callback) {
-      uint8_t tl = buf[3];
-      // FIXME: is there a way we can NULL-terminate the string in the packet buffer?
-      char topic[tl+1];
-      memcpy(topic, &buf[4], tl);
-      topic[tl] = 0;
-      this->callback(topic, buf+4+tl, buf[1]-2-tl);
+      }
+      break;
     }
-  } else {
-    MQTT_DEBUG_PRINTF("MQTT: received unknown packet type (%d)\n", (type >> 4));
+    case MQTT_TYPE_SUBACK:
+      MQTT_DEBUG_PRINTLN("MQTT: Subscribed!");
+      // FIXME: check current state before changing state
+      this->state = MQTT_STATE_CONNECTED;
+      break;
+    case MQTT_TYPE_PINGRESP:
+      MQTT_DEBUG_PRINTLN("MQTT: Pong!");
+      break;
+    case MQTT_TYPE_PUBLISH:
+      if (this->callback) {
+        uint8_t tl = buf[3];
+        // FIXME: is there a way we can NULL-terminate the string in the packet buffer?
+        char topic[tl+1];
+        memcpy(topic, &buf[4], tl);
+        topic[tl] = 0;
+        this->callback(topic, buf+4+tl, buf[1]-2-tl);
+      }
+    default:
+      MQTT_DEBUG_PRINTF("MQTT: received unknown packet type (%d)\n", (type >> 4));
+      break;
   }
 
   // Restart the packet receive timer
@@ -361,37 +373,43 @@ void NanodeMQTT::tcp_transmit()
 {
   MQTT_DEBUG_PRINTF("tcp_transmit(state=%d)\n", this->state);
 
-  // FIXME: convert to a switch()
-  if (this->state == MQTT_STATE_CONNECTING) {
-    // Send a CONNECT packet
-    init_packet(MQTT_TYPE_CONNECT);
-    append_string("MQIsdp");
-    append_byte(MQTT_PROTOCOL_VERSION);
-    append_byte(MQTT_FLAG_CLEAN); // Connect flags
-    append_word(this->keep_alive);
-    append_string(this->client_id);
-    send_packet();
-  } else if (this->state == MQTT_STATE_PUBLISHING) {
-    uint8_t header = MQTT_TYPE_PUBLISH;
-    if (payload_retain)
-      header |= MQTT_FLAG_RETAIN;
-    init_packet(header);
-    append_string(this->payload_topic);
-    append_data(this->payload, this->payload_length);
-    send_packet();
-  } else if (this->state == MQTT_STATE_SUBSCRIBING) {
-    init_packet(MQTT_TYPE_SUBSCRIBE);
-    append_word(this->message_id);
-    append_string(this->subscribe_topic);
-    append_byte(0x00);  // We only support QOS 0
-    send_packet();
-  } else if (this->state == MQTT_STATE_PINGING) {
-    init_packet(MQTT_TYPE_PINGREQ);
-    send_packet();
-  } else if (this->state == MQTT_STATE_DISCONNECTING) {
-    init_packet(MQTT_TYPE_DISCONNECT);
-    send_packet();
-  } else {
-    MQTT_DEBUG_PRINTLN("MQTT: Unable to transmit in state");
+  switch(this->state) {
+    case MQTT_STATE_CONNECTING:
+      init_packet(MQTT_TYPE_CONNECT);
+      append_string("MQIsdp");
+      append_byte(MQTT_PROTOCOL_VERSION);
+      append_byte(MQTT_FLAG_CLEAN); // Connect flags
+      append_word(this->keep_alive);
+      append_string(this->client_id);
+      send_packet();
+      break;
+    case MQTT_STATE_PUBLISHING: {
+      uint8_t header = MQTT_TYPE_PUBLISH;
+      if (payload_retain)
+        header |= MQTT_FLAG_RETAIN;
+      init_packet(header);
+      append_string(this->payload_topic);
+      append_data(this->payload, this->payload_length);
+      send_packet();
+      break;
+    }
+    case MQTT_STATE_SUBSCRIBING:
+      init_packet(MQTT_TYPE_SUBSCRIBE);
+      append_word(this->message_id);
+      append_string(this->subscribe_topic);
+      append_byte(0x00);  // We only support QOS 0
+      send_packet();
+      break;
+    case MQTT_STATE_PINGING:
+      init_packet(MQTT_TYPE_PINGREQ);
+      send_packet();
+      break;
+    case MQTT_STATE_DISCONNECTING:
+      init_packet(MQTT_TYPE_DISCONNECT);
+      send_packet();
+      break;
+    default:
+      MQTT_DEBUG_PRINTLN("MQTT: Unable to transmit in state");
+      break;
   }
 }
