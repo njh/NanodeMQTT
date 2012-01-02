@@ -4,6 +4,10 @@
 #include <NanodeUIP.h>
 
 
+// Uncomment to enable debugging of NanodeMQTT
+#define MQTT_DEBUG   1
+
+
 #define MQTT_DEFAULT_PORT        (1883)
 #define MQTT_DEFAULT_KEEP_ALIVE  (15)
 
@@ -59,6 +63,15 @@ enum mqtt_state {
   MQTT_STATE_DISCONNECTING,  // In the middle of sending a DISCONNECT packet
   MQTT_STATE_DISCONNECTED
 };
+
+
+#ifdef MQTT_DEBUG
+#define MQTT_DEBUG_PRINTLN(str) printf_P(PSTR(str "\n"));
+#define MQTT_DEBUG_PRINTF(str, ...) printf_P(PSTR(str), __VA_ARGS__);
+#else
+#define MQTT_DEBUG_PRINTLN(str)
+#define MQTT_DEBUG_PRINTF(str, ...)
+#endif
 
 
 typedef void (*mqtt_callback_t) (const char* topic, uint8_t* payload, int payload_length);
@@ -135,7 +148,7 @@ private:
 struct mqtt_app_state {
   NanodeMQTT* mqtt;
 };
-
+UIPASSERT(sizeof(struct mqtt_app_state)<=TCP_APP_STATE_SIZE)
 
 
 #endif

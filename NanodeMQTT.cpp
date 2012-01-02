@@ -2,35 +2,73 @@
 #include <NanodeMQTT.h>
 
 
+#ifdef MQTT_DEBUG
+static int serial_putc( char c, FILE * )
+{
+  Serial.write( c );
+  return c;
+}
+#endif
+
 NanodeMQTT::NanodeMQTT(NanodeUIP *uip)
 {
   this->uip = uip;
   memset(this->client_id, 0, MQTT_MAX_CLIENT_ID_LEN+1);
   this->port = MQTT_DEFAULT_PORT;
   this->keep_alive = MQTT_DEFAULT_KEEP_ALIVE;
-  this->state = MQTT_STATE_DISCONNECTED;
-  this->callback = NULL;
-  this->subscribe_topic = NULL;
   this->message_id = 0;
+  this->state = MQTT_STATE_DISCONNECTED;
+
+  this->payload_length = 0;
+  this->payload_retain = 0;
+  this->subscribe_topic = NULL;
+  this->callback = NULL;
+
+  #ifdef MQTT_DEBUG
+  fdevopen( &serial_putc, 0 );
+  #endif
 }
 
 static void mqtt_appcall(void)
 {
-  struct mqtt_app_state *s = (struct mqtt_app_state *)&(uip_conn->appstate);
-  NanodeMQTT *mqtt = s->mqtt;
+  NanodeMQTT *mqtt = ((struct mqtt_app_state *)&(uip_conn->appstate))->mqtt;
 
-  if (uip_aborted() || uip_timedout() || uip_closed()) {
+  if (uip_aborted()) {
+    MQTT_DEBUG_PRINTLN("TCP: Connection Aborted");
     mqtt->tcp_closed();
-  } else if (uip_connected()) {
+  }
+
+  if (uip_timedout()) {
+    MQTT_DEBUG_PRINTLN("TCP: Connection Timed Out");
+    mqtt->tcp_closed();
+  }
+
+  if (uip_closed()) {
+    MQTT_DEBUG_PRINTLN("TCP: Connection Closed");
+    mqtt->tcp_closed();
+  }
+
+  if (uip_connected()) {
+    MQTT_DEBUG_PRINTLN("TCP: Connection Established");
     mqtt->tcp_connected();
-  } else if (uip_acked()) {
+  }
+
+  if (uip_acked()) {
+    MQTT_DEBUG_PRINTLN("TCP: Acked");
     mqtt->tcp_acked();
-  } else if (uip_newdata()) {
+  }
+
+  if (uip_newdata()) {
+    MQTT_DEBUG_PRINTLN("TCP: New Data");
     mqtt->tcp_receive();
-  } else if (uip_rexmit()) {
-    Serial.println("*Retransmitting*");
+  }
+
+  if (uip_rexmit()) {
+    MQTT_DEBUG_PRINTLN("TCP: Retransmit");
     mqtt->tcp_transmit();
-  } else if (uip_poll()) {
+  }
+
+  if (uip_poll()) {
     mqtt->poll();
   }
 
@@ -91,6 +129,9 @@ uint8_t NanodeMQTT::connected()
 {
   switch(this->state) {
     case MQTT_STATE_CONNECTED:
+    case MQTT_STATE_PUBLISHING:
+    case MQTT_STATE_SUBSCRIBING:
+    case MQTT_STATE_SUBSCRIBE_SENT:
     case MQTT_STATE_PINGING:
       return 1;
     default:
@@ -100,7 +141,7 @@ uint8_t NanodeMQTT::connected()
 
 void NanodeMQTT::disconnect()
 {
-   Serial.println("disconnect()");
+   MQTT_DEBUG_PRINTLN("disconnect()");
    if (this->connected()) {
       this->state = MQTT_STATE_DISCONNECTING;
       this->tcp_transmit();
@@ -192,6 +233,7 @@ void NanodeMQTT::tcp_connected()
 
 void NanodeMQTT::tcp_acked()
 {
+  // FIXME: convert to a switch()
   if (state == MQTT_STATE_CONNECTING) {
     this->state = MQTT_STATE_CONNECT_SENT;
   } else if (state == MQTT_STATE_PUBLISHING) {
@@ -206,7 +248,7 @@ void NanodeMQTT::tcp_acked()
     this->state = MQTT_STATE_DISCONNECTED;
     uip_close();
   } else {
-    Serial.println("ack unknown state");
+    MQTT_DEBUG_PRINTLN("TCP: ack unknown state");
   }
 }
 
@@ -221,24 +263,23 @@ void NanodeMQTT::tcp_receive()
   // FIXME: check that packet isn't too long?
   // FIXME: support packets longer than 127 bytes
 
+  // FIXME: convert to a switch()
   if (type == MQTT_TYPE_CONNACK) {
      uint8_t code = buf[3];
      if (code == 0) {
-        Serial.println("Connected!");
+        MQTT_DEBUG_PRINTLN("MQTT: Connected!");
         this->state = MQTT_STATE_CONNECTED;
      } else {
-        Serial.print("Connection to MQTT failed (0x");
-        Serial.print(code, HEX);
-        Serial.println(")");
+        MQTT_DEBUG_PRINTF("MQTT: Connection failed (0x%x)\n", code);
         uip_close();
         this->state = MQTT_STATE_CONNECT_FAIL;
      }
   } else if (type == MQTT_TYPE_SUBACK) {
-    Serial.println("Subscribed!");
+    MQTT_DEBUG_PRINTLN("MQTT: Subscribed!");
     // FIXME: check current state before changing state
     this->state = MQTT_STATE_CONNECTED;
   } else if (type == MQTT_TYPE_PINGRESP) {
-    Serial.println("Pong!");
+    MQTT_DEBUG_PRINTLN("MQTT: Pong!");
   } else if (type == MQTT_TYPE_PUBLISH) {
     if (this->callback) {
       uint8_t tl = buf[3];
@@ -249,7 +290,7 @@ void NanodeMQTT::tcp_receive()
       this->callback(topic, buf+4+tl, buf[1]-2-tl);
     }
   } else {
-    // Ignore
+    MQTT_DEBUG_PRINTF("MQTT: received unknown packet type (%d)\n", (type >> 4));
   }
 
   // Restart the packet receive timer
@@ -259,7 +300,7 @@ void NanodeMQTT::tcp_receive()
 
 void NanodeMQTT::tcp_closed()
 {
-  Serial.println("tcp_closed()");
+  MQTT_DEBUG_PRINTLN("tcp_closed()");
   this->state = MQTT_STATE_DISCONNECTED;
   uip_close();
 
@@ -282,18 +323,29 @@ void NanodeMQTT::poll()
 
 void NanodeMQTT::check_timeout()
 {
+  #ifdef MQTT_DEBUG
+  if (timer_expired(&this->transmit_timer))
+    MQTT_DEBUG_PRINTF("MQTT: not transmitted for %d seconds\n", this->keep_alive);
+
+  if (timer_expired(&this->receive_timer))
+    MQTT_DEBUG_PRINTF("MQTT: not received for %d seconds\n", this->keep_alive);
+  #endif
+
   if (timer_expired(&this->transmit_timer) || timer_expired(&this->receive_timer)) {
+    // FIXME: deal with timing out in a state over than CONNECTED?
     if (this->state == MQTT_STATE_CONNECTED) {
       // Send a ping
+      MQTT_DEBUG_PRINTLN("MQTT: Ping!");
       this->state = MQTT_STATE_PINGING;
       this->tcp_transmit();
 
       // Give the server time to respond to the ping
       timer_restart(&this->receive_timer);
     } else if (this->connected()) {
-      Serial.println("Timed out.");
+      MQTT_DEBUG_PRINTLN("MQTT: Timed out.");
       this->disconnect();
     } else {
+      MQTT_DEBUG_PRINTLN("MQTT: Aborting after time-out.");
       this->state = MQTT_STATE_DISCONNECTED;
       uip_abort();
     }
@@ -304,8 +356,9 @@ void NanodeMQTT::check_timeout()
 // Transmit/re-transmit packet for the current state
 void NanodeMQTT::tcp_transmit()
 {
-  Serial.println("tcp_transmit()");
+  MQTT_DEBUG_PRINTF("tcp_transmit(state=%d)\n", this->state);
 
+  // FIXME: convert to a switch()
   if (this->state == MQTT_STATE_CONNECTING) {
     // Send a CONNECT packet
     init_packet(MQTT_TYPE_CONNECT);
@@ -336,8 +389,6 @@ void NanodeMQTT::tcp_transmit()
     init_packet(MQTT_TYPE_DISCONNECT);
     send_packet();
   } else {
-    Serial.print("** unable to transmit ");
-    Serial.print(this->state, DEC);
-    Serial.println();
+    MQTT_DEBUG_PRINTLN("MQTT: Unable to transmit in state");
   }
 }
