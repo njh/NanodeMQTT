@@ -117,12 +117,15 @@ public:
   void connect();
   void disconnect();
   uint8_t connected();
+  uint8_t state();
 
   void publish(const char* topic, char* payload);
   void publish(const char* topic, uint8_t* payload, uint8_t plength);
   void publish(const char* topic, uint8_t* payload, uint8_t plength, uint8_t retained);
 
   void subscribe(const char* topic);
+
+
 
   // uIP Callbacks (used internally)
   void tcp_closed();

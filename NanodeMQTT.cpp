@@ -124,7 +124,6 @@ void NanodeMQTT::connect()
   timer_set(&this->receive_timer, CLOCK_SECOND * this->keep_alive);
 }
 
-
 uint8_t NanodeMQTT::connected()
 {
   switch(this->state) {
@@ -137,6 +136,11 @@ uint8_t NanodeMQTT::connected()
     default:
       return 0;
   }
+}
+
+uint8_t NanodeMQTT::state()
+{
+  return this->state;
 }
 
 void NanodeMQTT::disconnect()
