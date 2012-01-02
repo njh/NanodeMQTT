@@ -117,7 +117,7 @@ public:
   void connect();
   void disconnect();
   uint8_t connected();
-  uint8_t state();
+  uint8_t get_state();
 
   void publish(const char* topic, char* payload);
   void publish(const char* topic, uint8_t* payload, uint8_t plength);

@@ -138,7 +138,7 @@ uint8_t NanodeMQTT::connected()
   }
 }
 
-uint8_t NanodeMQTT::state()
+uint8_t NanodeMQTT::get_state()
 {
   return this->state;
 }
