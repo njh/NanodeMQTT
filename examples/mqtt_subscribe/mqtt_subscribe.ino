@@ -6,9 +6,8 @@ NanodeMQTT mqtt(&uip);
 
 void message_callback(const char* topic, uint8_t* payload, int payload_length)
 {
-  Serial.print("topic=");
   Serial.print(topic);
-  Serial.print(" payload=");
+  Serial.print(" => ");
   Serial.write(payload, payload_length);
   Serial.println();
 }
@@ -18,7 +17,7 @@ void setup() {
   NanodeUNIO unio(NANODE_MAC_DEVICE);
 
   Serial.begin(38400);
-  Serial.println("MQTT Publish test");
+  Serial.println("MQTT Subscribe test");
   
   unio.read(macaddr, NANODE_MAC_ADDRESS, 6);
   uip.init(macaddr);
