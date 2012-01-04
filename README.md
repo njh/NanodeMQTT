@@ -44,16 +44,19 @@ TODO
 * Add a new timed out state?
 * Time-out if SUBACK isn't received?
 * Implement auto-reconnect
+* Cope with multiple MQTT packets in single Ethernet packet
 * Look at removing some buffers
 * Get DNS working in example
 * Assert that UIP buffers are big enough
 * Memory usage optimisations (especially RAM)
 * Implement Wills
 * Improve subscribing to multiple topics
+* Improve timeout and ping timer mechanism, so that timeouts happen faster
 * Make a State Machine diagram
 * Separate out UIP code, so that it works with plain [Contiki].
 * Implement unsubscribe (?)
 * Provide callback for periodic publishes?
+
 
 
 Thanks to

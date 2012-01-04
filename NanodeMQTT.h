@@ -117,6 +117,7 @@ private:
   uint16_t keep_alive;
   uint16_t message_id;
   uint8_t state;
+  uint8_t ping_pending;
 
   uint8_t *buf;
   uint8_t pos;
