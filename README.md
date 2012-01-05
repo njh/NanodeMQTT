@@ -24,10 +24,6 @@ Limitations
 Questions
 ---------
 
-* Should the public API calls block?
-  - connect()
-  - subscribe()
-  - publish()
 * What is the best approach to error handling?
  - Is it a good idea to print debug messages to Serial?
 * What assumptions is it safe to make to reduce complexity?
@@ -40,19 +36,18 @@ Questions
 TODO
 ----
 
-* Make better use of the uIP appstate memory
+* Make Public API calls blocking by default: connect(), subscribe(), publish()
+* Get DNS and DHCP working in examples
+* Implement Wills
+* Look at removing some buffers
 * Add a new timed out state?
 * Time-out if SUBACK isn't received?
 * Implement auto-reconnect
 * Cope with multiple MQTT packets in single Ethernet packet
-* Look at removing some buffers
-* Get DNS working in example
+* Make better use of the uIP appstate memory
 * Assert that UIP buffers are big enough
 * Memory usage optimisations (especially RAM)
-* Implement Wills
-* Improve subscribing to multiple topics
 * Improve timeout and ping timer mechanism, so that timeouts happen faster
-* Make a State Machine diagram
 * Separate out UIP code, so that it works with plain [Contiki].
 * Implement unsubscribe (?)
 * Provide callback for periodic publishes?
