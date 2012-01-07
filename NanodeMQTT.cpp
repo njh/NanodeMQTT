@@ -48,6 +48,7 @@ NanodeMQTT::NanodeMQTT(NanodeUIP *uip)
   this->message_id = 0;
   this->state = MQTT_STATE_DISCONNECTED;
   this->ping_pending = 0;
+  this->error_code = 0;
 
   this->payload_length = 0;
   this->payload_retain = 0;
@@ -173,6 +174,11 @@ uint8_t NanodeMQTT::get_state()
   return this->state;
 }
 
+int8_t NanodeMQTT::get_error_code()
+{
+  return this->error_code;
+}
+
 void NanodeMQTT::disconnect()
 {
    MQTT_DEBUG_PRINTLN("disconnect()");
@@ -201,6 +207,10 @@ void NanodeMQTT::publish(const char* topic, uint8_t* payload, uint8_t plength, u
   this->payload_retain = retained;
   this->payload_length = plength;
 }
+
+
+// ** End of the public API **
+
 
 void NanodeMQTT::subscribe(const char* topic)
 {
@@ -310,10 +320,10 @@ void NanodeMQTT::tcp_receive()
         MQTT_DEBUG_PRINTLN("MQTT: Connected!");
         this->state = MQTT_STATE_CONNECTED;
       } else {
-        MQTT_DEBUG_PRINTF("MQTT: Connection failed (0x%x)\n", code);
+        MQTT_DEBUG_PRINTF("MQTT: Connection failed (%u)\n", code);
         uip_close();
-        // FIXME: allow application to know why the connect failed
-        this->state = MQTT_STATE_CONNECT_FAIL;
+        this->state = MQTT_STATE_DISCONNECTED;
+        this->error_code = code;
       }
       break;
     }

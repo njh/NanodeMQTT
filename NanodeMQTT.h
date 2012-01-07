@@ -85,7 +85,6 @@ enum mqtt_state {
   MQTT_STATE_CONNECTING,     // TCP Connected and in middle of sending a CONNECT
   MQTT_STATE_CONNECT_SENT,   // Waiting for CONNACK
   MQTT_STATE_CONNECTED,      // Received CONNACK
-  MQTT_STATE_CONNECT_FAIL,   // CONNACK returned non-zero
   MQTT_STATE_PUBLISHING,     // In the middle of sending a PUBLISH
   MQTT_STATE_SUBSCRIBING,    // In the middle of sending a SUBSCRIBE
   MQTT_STATE_SUBSCRIBE_SENT, // Waiting for a SUBACK
@@ -118,6 +117,7 @@ private:
   uint16_t message_id;
   uint8_t state;
   uint8_t ping_pending;
+  int8_t error_code;
 
   uint8_t *buf;
   uint8_t pos;
@@ -149,6 +149,7 @@ public:
   void disconnect();
   uint8_t connected();
   uint8_t get_state();
+  int8_t get_error_code();
 
   void publish(const char* topic, char* payload);
   void publish(const char* topic, uint8_t* payload, uint8_t plength);
