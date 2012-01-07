@@ -17,7 +17,6 @@ Limitations
 -----------
 
 - Maximum packet size is 127 bytes
-- Currently only possible to reliably subscribe to a single topic
 - Only QOS 0 supported
 
 

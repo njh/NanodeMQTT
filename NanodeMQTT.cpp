@@ -48,6 +48,7 @@ NanodeMQTT::NanodeMQTT(NanodeUIP *uip)
   this->message_id = 0;
   this->state = MQTT_STATE_DISCONNECTED;
   this->ping_pending = 0;
+  this->blocking_mode = 1;
   this->error_code = 0;
 
   this->payload_length = 0;
@@ -127,6 +128,11 @@ void NanodeMQTT::set_keep_alive(uint16_t secs)
   this->keep_alive = secs;
 }
 
+void NanodeMQTT::set_blocking_mode(uint8_t blocking)
+{
+  this->blocking_mode = blocking;
+}
+
 void NanodeMQTT::set_callback(mqtt_callback_t callback)
 {
   this->callback = callback;
@@ -148,11 +154,21 @@ void NanodeMQTT::connect()
     struct mqtt_app_state *s = (struct mqtt_app_state *)&(conn->appstate);
     s->mqtt = this;
     this->state = MQTT_STATE_WAITING;
-  }
 
-  // Set the keep-alive timers
-  timer_set(&this->transmit_timer, CLOCK_SECOND * this->keep_alive);
-  timer_set(&this->receive_timer, CLOCK_SECOND * this->keep_alive);
+    // Set the keep-alive timers
+    timer_set(&this->transmit_timer, CLOCK_SECOND * this->keep_alive);
+    timer_set(&this->receive_timer, CLOCK_SECOND * this->keep_alive);
+
+    // If in blocking mode - loop until we are connected
+    if (this->blocking_mode) {
+      while (this->state == MQTT_STATE_WAITING ||
+             this->state == MQTT_STATE_CONNECTING ||
+             this->state == MQTT_STATE_CONNECT_SENT)
+      {
+        uip->poll();
+      }
+    }
+  }
 }
 
 uint8_t NanodeMQTT::connected()
@@ -206,6 +222,13 @@ void NanodeMQTT::publish(const char* topic, uint8_t* payload, uint8_t plength, u
   memcpy(this->payload, payload, plength);
   this->payload_retain = retained;
   this->payload_length = plength;
+
+  // If in blocking mode - loop until message has been published
+  if (this->blocking_mode) {
+    while (this->connected() && this->payload_length != 0) {
+      uip->poll();
+    }
+  }
 }
 
 
@@ -214,8 +237,14 @@ void NanodeMQTT::publish(const char* topic, uint8_t* payload, uint8_t plength, u
 
 void NanodeMQTT::subscribe(const char* topic)
 {
-  // FIXME: work out how to subscribe to multiple topics?
   this->subscribe_topic = topic;
+
+  // If in blocking mode - loop until we have subscribed
+  if (this->blocking_mode) {
+    while (this->connected() && this->subscribe_topic != NULL) {
+      uip->poll();
+    }
+  }
 }
 
 void NanodeMQTT::init_packet(uint8_t header)
@@ -312,6 +341,7 @@ void NanodeMQTT::tcp_receive()
 
   // FIXME: check that packet isn't too long?
   // FIXME: support packets longer than 127 bytes
+  // FIXME: support multiple MQTT packets in single IP packet
 
   switch(type) {
     case MQTT_TYPE_CONNACK: {

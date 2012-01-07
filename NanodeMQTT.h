@@ -117,6 +117,7 @@ private:
   uint16_t message_id;
   uint8_t state;
   uint8_t ping_pending;
+  uint8_t blocking_mode;
   int8_t error_code;
 
   uint8_t *buf;
@@ -143,6 +144,7 @@ public:
   void set_server_addr(byte a, byte b, byte c, byte d);
   void set_server_port(uint16_t port);
   void set_keep_alive(uint16_t secs);
+  void set_blocking_mode(uint8_t blocking);
   void set_callback(mqtt_callback_t callback);
 
   void connect();
