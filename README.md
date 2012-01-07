@@ -21,45 +21,11 @@ Limitations
 - Only QOS 0 supported
 
 
-Questions
----------
-
-* What is the best approach to error handling?
- - Is it a good idea to print debug messages to Serial?
-* What assumptions is it safe to make to reduce complexity?
- - Should we bother waiting for SUBACK?
-* When/how to auto-reconnect?
-* How to analyse RAM / programme usage and optimise?
-* How to close previous TCP session after resetting the AVR?
-
-
-TODO
-----
-
-* Make Public API calls blocking by default: connect(), subscribe(), publish()
-* Get DNS and DHCP working in examples
-* Implement Wills
-* Look at removing some buffers
-* Add a new timed out state?
-* Time-out if SUBACK isn't received?
-* Implement auto-reconnect
-* Cope with multiple MQTT packets in single Ethernet packet
-* Make better use of the uIP appstate memory
-* Assert that UIP buffers are big enough
-* Memory usage optimisations (especially RAM)
-* Improve timeout and ping timer mechanism, so that timeouts happen faster
-* Separate out UIP code, so that it works with plain [Contiki].
-* Implement unsubscribe (?)
-* Provide callback for periodic publishes?
-
-
-
 Thanks to
 ---------
 
 * Nicholas O'Leary (Author of [PubSubClient] for Arduino)
 * Stephen Early (Author of [NanodeUIP])
-
 
 
 
