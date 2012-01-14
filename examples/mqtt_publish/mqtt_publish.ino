@@ -35,12 +35,12 @@ void setup() {
 void loop() {
   uip.poll();
 
-  // FIXME: this might need to be called by uip_poll()
   if(timer_expired(&my_timer)) {
     timer_reset(&my_timer);
     if (mqtt.connected()) {
-      Serial.println("publishing.");
+      Serial.println("Publishing...");
       mqtt.publish("test", "Hello World!");
+      Serial.println("Published.");
     }
   }
 }

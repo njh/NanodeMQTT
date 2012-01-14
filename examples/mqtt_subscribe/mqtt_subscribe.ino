@@ -33,7 +33,10 @@ void setup() {
   mqtt.set_server_addr(10, 100, 10, 1);
   mqtt.set_callback(message_callback);
   mqtt.connect();
+  Serial.println("Connected to MQTT server");
+
   mqtt.subscribe("test");
+  Serial.println("Subscribed.");
 
   Serial.println("setup() done");
 }

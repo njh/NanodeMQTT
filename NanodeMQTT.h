@@ -35,7 +35,7 @@
 
 
 // Uncomment to enable debugging of NanodeMQTT
-#define MQTT_DEBUG   1
+//#define MQTT_DEBUG   1
 
 
 #define MQTT_DEFAULT_PORT        (1883)
@@ -153,9 +153,9 @@ public:
   uint8_t get_state();
   int8_t get_error_code();
 
-  void publish(const char* topic, char* payload);
-  void publish(const char* topic, uint8_t* payload, uint8_t plength);
-  void publish(const char* topic, uint8_t* payload, uint8_t plength, uint8_t retained);
+  void publish(const char* topic, const char* payload);
+  void publish(const char* topic, const uint8_t* payload, uint8_t plength);
+  void publish(const char* topic, const uint8_t* payload, uint8_t plength, uint8_t retained);
 
   void subscribe(const char* topic);
 

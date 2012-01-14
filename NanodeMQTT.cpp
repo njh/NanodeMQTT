@@ -115,7 +115,7 @@ void NanodeMQTT::set_client_id(const char* client_id)
 
 void NanodeMQTT::set_server_addr(byte a, byte b, byte c, byte d)
 {
-  uip_ipaddr(this->addr, a,b,c,d);
+  uip_ipaddr(&this->addr, a,b,c,d);
 }
 
 void NanodeMQTT::set_server_port(uint16_t port)
@@ -149,7 +149,7 @@ void NanodeMQTT::connect()
     uip->get_mac_str(this->client_id);
   }
 
-  conn = uip_connect(&this->addr, HTONS(this->port), mqtt_appcall);
+  conn = uip_connect(&this->addr, UIP_HTONS(this->port), mqtt_appcall);
   if (conn) {
     struct mqtt_app_state *s = (struct mqtt_app_state *)&(conn->appstate);
     s->mqtt = this;
@@ -204,17 +204,17 @@ void NanodeMQTT::disconnect()
    }
 }
 
-void NanodeMQTT::publish(const char* topic, char* payload)
+void NanodeMQTT::publish(const char* topic, const char* payload)
 {
    publish(topic, (uint8_t*)payload, strlen(payload));
 }
 
-void NanodeMQTT::publish(const char* topic, uint8_t* payload, uint8_t plength)
+void NanodeMQTT::publish(const char* topic, const uint8_t* payload, uint8_t plength)
 {
    publish(topic, payload, plength, 0);
 }
 
-void NanodeMQTT::publish(const char* topic, uint8_t* payload, uint8_t plength, uint8_t retained)
+void NanodeMQTT::publish(const char* topic, const uint8_t* payload, uint8_t plength, uint8_t retained)
 {
   // FIXME: check that payload isn't bigger than UIP_APPDATASIZE (or 127 bytes)
   // FIXME: can we avoid this extra buffer?
