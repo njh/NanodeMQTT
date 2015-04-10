@@ -1,5 +1,9 @@
+Note that I am no-longer working on this codebase.
+==================================================
+
+
 NanodeMQTT
-==========
+----------
 
 Implementation of [MQTT] for the [Nanode]. MQTT is a lightweight PubSub protocol.
 Nanode is an open source Arduino-like board that has in-built internet connectivity.
